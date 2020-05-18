@@ -80,7 +80,7 @@
             });
         });
 
-        document.body.addEventListener('paste', function(e) {
+        document.body.addEventListener('paste', function(event) {
             let paste = (event.clipboardData || window.clipboardData).getData('text');
             return convert(paste);
         });
