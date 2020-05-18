@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Flyte → Kibana</title>
+        <style>
+            #centered {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translateX(-50%) translateY(-100%);
+                font-family: sans-serif;
+                font-size: 24px;
+                line-height: 1.5;
+            }
+            #centered input {
+                font-size: 24px;
+                width: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="centered">
+            Paste a link to a Flyte Execution<br>
+        <input id="url" type="text" placeholder="Ctrl+V or &#8984;+V">
+        </div>
+    <script>
+        function fromDict(obj) {
+            let result = '';
+            for (let p in obj) {
+                if (result)
+                    result += ',';
+                result += p + ':' + obj[p];
+            }
+            return '(' + result + ')';
+        }
+
+        function quoted(s) {
+            return "'" + s + "'";
+        }
+
+        function getURL(namespace, domain, executionId) {
+            let endpoint = "https://logs.staging.lyft-minsk.com/app/kibana";
+            let query = [
+                'kubernetes.namespace:' + namespace + '-' + domain,
+                'kubernetes.labels.execution-id:' + executionId
+            ].join(' AND ').replace(/ /g, '+');
+            let settingsPart = fromDict({
+                refreshInterval: '(pause:!t,value:0)',
+                time: '(from:now-1w,to:now)'
+            });
+            let queryPart = fromDict({
+                columns: '!(message)',
+                index: quoted('72fb2630-4db6-11ea-9174-83ac54a03216'),
+                interval: 'auto',
+                query: fromDict({
+                    language: 'kuery',
+                    query: quoted(query)
+                }),
+                sort: "!('@timestamp',desc)"
+            });
+            return endpoint + '#/discover?_g=' + settingsPart + '&_a=' + queryPart;
+        }
+
+        function convert(flyteUrl) {
+            if (!flyteUrl)
+                return false;
+            var match = flyteUrl.match(/flyte\.staging\.lyft-minsk.+projects\/([^\/]+)\/domains\/(\w+)\/executions\/([\w\d]+)/);
+            if (!match)
+                return false;
+            var url = getURL(match[1], match[2], match[3]);
+            location.assign(url);
+        }
+
+        window.addEventListener('load', function(e) {
+            let input = document.getElementById('url')
+            input.value = '';
+            input.addEventListener('input', function(event) {
+                return convert(event.target.value);
+            });
+        });
+
+        document.body.addEventListener('paste', function(e) {
+            let paste = (event.clipboardData || window.clipboardData).getData('text');
+            return convert(paste);
+        });
+    </script>
+    </body>
+</html>
